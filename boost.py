@@ -1,149 +1,87 @@
+"""
+boost.py — apply a random stat boost to each player pass on file for a sport.
+
+NOTE: per project owner as of 2026-05-17, the boost endpoint is broken upstream;
+your friend is investigating. The script is patched and ready but expect 4xx/5xx
+from the server until the fix lands.
+
+Patched to:
+  * use accounts.py (no hardcoded AUTH_INFO)
+  * route through RateLimitedClient (4-8.5s jitter, sentry headers,
+    AND the previously-missing real-native-request-token header)
+  * dry-run by default; --live to mutate
+"""
+from __future__ import annotations
+
+import argparse
 import json
-import os
 import random
 from pathlib import Path
 
-import requests
-from dotenv import load_dotenv
+from accounts import get_account
+from client import CADENCE_WRITE, RateLimitedClient
 
-from token_generation import tokens
-
-load_dotenv()
-
-AUTH_INFO = os.getenv("RAINCANE")
-SPORT = "wnba"
-PLAYER_FILE = Path("players") / f"RAINCANE_{SPORT}.json"
-API_BASE_URL = "https://api.real.vg"
 BOOST_KEYS = [1, 2, 3, 4, 5, 21]
 BOOST_RARITY = 3
-
-MAPPINGS = {
-    1: "PTS",
-    2: "AST",
-    3: "REB",
-    4: "STL",
-    5: "BLK",
-    21: "3PM",
-}
+MAPPINGS = {1: "PTS", 2: "AST", 3: "REB", 4: "STL", 5: "BLK", 21: "3PM"}
 
 
-def build_headers(auth_info: str, native_request_token: str, request_token: str) -> dict[str, str]:
-  """
-  Build HTTP headers for boost requests.
-
-  Args:
-    auth_info (str): Authentication information from the environment.
-    native_request_token (str): HMAC-signed native request token.
-    request_token (str): Hashids-encoded request token.
-
-  Returns:
-    dict[str, str]: Headers required for the REAL API request.
-  """
-  return {
-    "Host": "api.real.vg",
-    "real-device-uuid": "59A885E7-109F-4F35-8321-0B452BABEBD4",
-    "Accept": "application/json",
-    "real-device-name": "iPhone17,1",
-    "real-request-token": request_token,
-    "real-version": "31",
-    "real-device-type": "ios",
-    "real-auth-info": auth_info,
-    "Accept-Language": "en-CA,en-US;q=0.9,en;q=0.8",
-    "Accept-Encoding": "gzip, deflate, br",
-    "User-Agent": "real/1 CFNetwork/3860.100.1 Darwin/25.0.0",
-    "Connection": "keep-alive",
-    "Content-Type": "application/json",
-  }
+def load_players(player_file: Path) -> list[dict]:
+    with player_file.open(encoding="utf-8") as f:
+        return json.load(f).get("passes", [])
 
 
-def load_players(player_file: Path) -> list[dict[str, object]]:
-  """
-  Load player pass data from a JSON file.
-
-  Args:
-    player_file (Path): Path to the saved player JSON file.
-
-  Returns:
-    list[dict[str, object]]: The list of player pass records.
-  """
-  with open(player_file, "r", encoding="utf-8") as file:
-    payload = json.load(file)
-
-  return payload.get("passes", [])
-
-
-def boost_player(player: dict[str, object], auth_info: str) -> tuple[bool, str]:
-  """
-  Apply a random stat boost to a single player card.
-
-  Args:
-    player (dict[str, object]): Player pass record from the saved JSON file.
-    auth_info (str): Authentication information from the environment.
-
-  Returns:
-    tuple[bool, str]: Success flag and a message describing the result.
-  """
-  player_id = player.get("id")
-  player_label = player.get("label", "unknown player")
-  boost_key = random.choice(BOOST_KEYS)
-
-  native_request_token, request_token = tokens()
-  url = f"{API_BASE_URL}/userpassboostercards/{player_id}/rarity/{BOOST_RARITY}"
-  headers = build_headers(auth_info, native_request_token, request_token)
-
-  response = requests.put(url, headers=headers, data=json.dumps({"statBoostKey": str(boost_key)}))
-
-  try:
-    response_data = response.json()
-
-    if response_data["success"]:
-      return True, f"boosted {player_label} userPassId={player_id} boost={MAPPINGS[boost_key]}"
-    else:
-      error_message = response_data.get("message", "unknown error")
-      return False, f"failed to boost {player_label} userPassId={player_id} error={error_message}"
-
-  except (json.JSONDecodeError, ValueError):
-    return False, f"failed to boost {player_label} userPassId={player_id} - invalid JSON response: {response.text}"
-
-
-
-def main() -> None:
-  """
-  Load RAINCANE WNBA players and apply a random boost to each one.
-
-  Returns:
-    None
-  """
-  if not AUTH_INFO:
-    print("Missing RAINCANE auth info in .env")
-    return
-
-  if not PLAYER_FILE.exists():
-    print(f"Missing players file: {PLAYER_FILE}")
-    return
-
-  players = load_players(PLAYER_FILE)
-  print(f"Loaded {len(players)} players from {PLAYER_FILE}")
-
-  results = []
-  for player in players:
-    if player.get("boosterCardId"):
-      boost_type = MAPPINGS[int(player["boosterCardInfo"]["statBoostKey"])]
-      print(f"skipping {player.get('label', 'unknown player')} userPassId={player.get('id')} - already has booster={boost_type}")
-      continue
-
-    success, message = boost_player(player, AUTH_INFO)
-    print(message)
-    results.append(
-      {
-        "playerId": player.get("id"),
-        "playerLabel": player.get("label"),
-        "success": success,
-        "message": message,
-      }
+def boost_player(client: RateLimitedClient, player: dict) -> tuple[bool, str]:
+    pid = player.get("id")
+    label = player.get("label", "unknown")
+    key = random.choice(BOOST_KEYS)
+    path = f"/userpassboostercards/{pid}/rarity/{BOOST_RARITY}"
+    resp = client.put(path, json_body={"statBoostKey": str(key)}, confirm_write=True)
+    if resp.status_code == 200:
+        return True, f"boosted {label} userPassId={pid} {MAPPINGS[key]}"
+    try:
+        err = resp.json().get("message", resp.text)
+    except (json.JSONDecodeError, ValueError):
+        err = resp.text
+    return False, (
+        f"failed {label} userPassId={pid} statBoostKey={key} "
+        f"status={resp.status_code} error={err}"
     )
 
 
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--account", default="HDERDAR")
+    parser.add_argument("--sport", default="nba")
+    parser.add_argument("--live", action="store_true")
+    args = parser.parse_args()
+
+    fp = get_account(args.account)
+    min_gap, max_gap = CADENCE_WRITE
+    client = RateLimitedClient(fp, min_gap_s=min_gap, max_gap_s=max_gap, dry_run=not args.live)
+
+    player_file = Path("players") / f"{args.account}_{args.sport}.json"
+    if not player_file.exists():
+        print(f"[X] missing {player_file}; run `python get_players.py` first")
+        return
+
+    players = [p for p in load_players(player_file) if p.get("sport") == args.sport]
+    print(f"[i] {args.account}/{args.sport}: {len(players)} player(s)  live={args.live}")
+
+    out_dir = Path("boosts")
+    out_dir.mkdir(exist_ok=True)
+    results = []
+    for p in players:
+        ok, msg = boost_player(client, p)
+        print(msg)
+        results.append({"playerId": p.get("id"), "playerLabel": p.get("label"),
+                        "success": ok, "message": msg})
+
+    out_path = out_dir / f"{args.account}_{args.sport}_boosts.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+    print(f"\nResults saved to {out_path}")
+
 
 if __name__ == "__main__":
-  main()
+    main()

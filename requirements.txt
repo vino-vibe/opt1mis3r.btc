@@ -1,3 +1,4 @@
 requests
 hashids
 python-dotenv
+streamlit
