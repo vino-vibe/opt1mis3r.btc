@@ -5,5 +5,26 @@
     "sport": "mlb",
     "season": 2026,
     "enabled": true
-  }
+  },
+
+  { "label": "Caitlin Clark",     "entityId": 624,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Kelsey Plum",       "entityId": 596,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Rhyne Howard",      "entityId": 616,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "A'ja Wilson",       "entityId": 598,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Aliyah Boston",     "entityId": 627,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Breanna Stewart",   "entityId": 639,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Paige Bueckers",    "entityId": 4322740, "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Courtney Williams", "entityId": 654,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Chennedy Carter",   "entityId": 703,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Allisha Gray",      "entityId": 605,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Angel Reese",       "entityId": 701,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Dearica Hamby",     "entityId": 718,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Nneka Ogwumike",    "entityId": 738,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Brittney Sykes",    "entityId": 679,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Kelsey Mitchell",   "entityId": 626,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Satou Sabally",     "entityId": 758,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Alyssa Thomas",     "entityId": 745,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Veronica Burton",   "entityId": 759,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Chelsea Gray",      "entityId": 602,     "sport": "wnba", "season": 2026, "enabled": true },
+  { "label": "Jackie Young",      "entityId": 597,     "sport": "wnba", "season": 2026, "enabled": true }
 ]

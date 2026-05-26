@@ -44,15 +44,21 @@ HDERDAR=<userId>!<token>!<deviceUuid>
 # Per-account iPhone fingerprint — match what your phone sends exactly
 HDERDAR_DEVICE_UUID=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
 HDERDAR_DEVICE_NAME=iPhone15,3
-HDERDAR_APP_VERSION=31
+HDERDAR_APP_VERSION=32
+
+# Numeric account ID — visible in the /userpassboostercards inventory URL when
+# captured via ProxyPin. Different from the string userId in auth_info.
+# Only required if you use boost.py.
+HDERDAR_NUMERIC_ID=16279796
 
 # Optional: shared fallbacks if you don't set per-account values
 DEFAULT_DEVICE_UUID=...
 DEFAULT_DEVICE_NAME=iPhone15,3
-DEFAULT_APP_VERSION=31
+DEFAULT_APP_VERSION=32
 
 # App version strings — update both when the Real app updates
-SENTRY_RELEASE=vg.real-10.145
+# Current as of 2026-05-22: app v32, Sentry release 10.150
+SENTRY_RELEASE=vg.real-10.150
 USER_AGENT_CFNETWORK=3860.400.51
 USER_AGENT_DARWIN=25.3.0
 ```
@@ -84,7 +90,7 @@ accounts.py           — AccountFingerprint objects from .env
         ├── buy_packs.py      — buy the daily 200-rax pack per watchlisted player
         ├── list_pass.py      — list passes that hit rare (80 rating)
         │       └── meowbot.py / pricing.py   — price lookups + tick rounding
-        └── boost.py          — apply stat boosts (endpoint broken upstream)
+        └── boost.py          — apply stat boosts (watchlist-driven, inventory-aware)
 ```
 
 Every script imports from `accounts.py` to get fingerprints and from `client.py` to make API calls. No script hardcodes auth info or builds headers itself.
@@ -345,18 +351,64 @@ Both functions handle the 2000-rax boundary — prices that would cross the boun
 
 ## Boost
 
-`boost.py` applies a stat booster to each player pass for a given sport. It picks a random stat key from `[1, 2, 3, 4, 5, 21]` (PTS, AST, REB, STL, BLK, 3PM) and PUTs to `/userpassboostercards/{id}/rarity/{rarity}`.
+`boost.py` applies stat boosters to player passes declared in `watchlist_boost.json`. Each entry specifies a preferred stat; the script checks live inventory before applying and falls back gracefully if that stat is out of stock.
 
-**The boost endpoint is currently broken upstream.** The script is ready but will return 4xx/5xx until your friend ships the server fix.
+### Prerequisites
 
-```bash
-python boost.py --account HDERDAR --sport nba          # dry-run
-python boost.py --account HDERDAR --sport nba --live   # actually boost
+1. `HDERDAR_NUMERIC_ID` set in `.env` — the numeric account ID visible in the inventory endpoint URL.
+2. `players/HDERDAR_wnba.json` (or whichever sport) populated by `get_players.py`.
+3. `watchlist_boost.json` populated with `cardId` values from that file.
+
+### Watchlist
+
+Edit `watchlist_boost.json`:
+
+```json
+[
+  {
+    "label": "Player Name",
+    "cardId": 12345678,
+    "sport": "wnba",
+    "season": 2026,
+    "preferred_stat": "3PM",
+    "enabled": true
+  }
+]
 ```
 
-Requires that `players/{account}_{sport}.json` exists — run `get_players.py` first.
+`cardId` is your per-user pass ID — find it in `players/{account}_{sport}.json`. `preferred_stat` must be one of: `PTS`, `AST`, `REB`, `STL`, `BLK`, `3PM`.
 
-Results are saved to `boosts/{account}_{sport}_boosts.json`.
+### Run
+
+```bash
+python3 boost.py                          # dry-run — shows what would be applied
+python3 boost.py --live                   # actually boost
+python3 boost.py --account HDERDAR --live
+```
+
+### What it does per player
+
+1. **Idempotency check** — if this `cardId` is in `state/boosted_{date}.json`, skip.
+2. **Current pass state** — `GET /userpasses/{cardId}` to check what stat (if any) is already applied. The PUT endpoint is a **toggle**: applying the same stat twice removes it. The script skips rather than accidentally toggling a boost off.
+3. **Inventory check** — `GET /userpassboostercards/{numericUserId}/entity/player?sport={sport}&version=stat` to get available counts per stat.
+4. **Stat selection**:
+   - Use `preferred_stat` if inventory count > 0.
+   - Otherwise fall back to whichever stat has the highest available count.
+   - If all counts are zero, skip this player entirely.
+5. **Apply** — `PUT /userpassboostercards/{cardId}/rarity/3` with body `{"statBoostKey": "<key>"}`. On success, decrement the in-memory inventory count and write to state file.
+
+### Stat keys
+
+| Stat | Key |
+|---|---|
+| PTS | 1 |
+| AST | 2 |
+| REB | 3 |
+| STL | 4 |
+| BLK | 5 |
+| 3PM | 21 |
+
+**Note:** The inventory response body shape has not yet been confirmed. The `fetch_boost_inventory()` function contains a clearly-marked TODO placeholder — paste the ProxyPin response and the parsing block will be completed.
 
 ---
 
@@ -372,7 +424,7 @@ The following changes from the original codebase eliminate the clearest fingerpr
 Remaining open items:
 - Daily run time should be randomized across a morning window (07:00–09:30) — solved by the orchestrator when built.
 - Listing duration is hardcoded to 72h — need to capture alternative durations from the app first.
-- Boost stat selection is uniform-random — a weighted or per-player-preferred stat would be more realistic.
+- Boost stat is now per-player preferred (not uniform-random) — this reduces the uniform-random detection tell flagged in RED_FLAGS.md #15.
 
 ---
 
@@ -380,12 +432,14 @@ Remaining open items:
 
 These API details are confirmed missing. Nothing that depends on them can ship until they're captured via ProxyPin.
 
-1. **3rd OTD bet** — endpoint path and body shape unknown. Blocks morning ritual step 3.
-2. **Real Pro account flag** — which field on which endpoint tells us the account has Pro access. Blocks gating the bet.
-3. **Listing duration alternatives** — the app offers other durations besides 72h. Capture one alternative and the orchestrator can randomize.
-4. **`POST /cardmarketplacelistings/{id}/bid`** — body shape assumed `{"bidAmount": N}` but not confirmed. Blocks the player pass scanner.
-5. **Listings GET pagination** — params for paging through open marketplace listings. Blocks the scanner.
-6. **"Top bid is mine" field** — need to know which field on a listing object indicates the current top bid is from the authenticated user. Blocks self-overbid protection in the scanner.
+1. **Boost inventory response body** — `GET /userpassboostercards/{numericUserId}/entity/player` request is captured; response shape is not. Blocks finalizing `fetch_boost_inventory()` parsing in `boost.py`.
+2. **3rd OTD bet** — endpoint path and body shape unknown. Blocks morning ritual step 3.
+3. **Real Pro account flag** — which field on which endpoint tells us the account has Pro access. Blocks gating the bet.
+4. **Listing duration alternatives** — the app offers other durations besides 72h. Capture one alternative and the orchestrator can randomize.
+5. **`POST /cardmarketplacelistings/{id}/bid`** — body shape assumed `{"bidAmount": N}` but not confirmed. Blocks the player pass scanner.
+6. **Listings GET pagination** — params for paging through open marketplace listings. Blocks the scanner.
+7. **"Top bid is mine" field** — need to know which field on a listing object indicates the current top bid is from the authenticated user. Blocks self-overbid protection in the scanner.
+8. **WNBA pack endpoint format** — captured as `/collectingpacks/wnba/season/2026/shopinfo?entityId=X&entityType=player&source=userpasscontrol`. Different structure from the MLB/NBA endpoint used in `buy_packs.py`. Needs a response capture to confirm whether this replaces or supplements the existing endpoint for WNBA pack buying.
 
 ---
 
@@ -410,9 +464,10 @@ These API details are confirmed missing. Nothing that depends on them can ship u
 | `list_pass.py` | List rare passes from watchlist_list.json |
 | `meowbot.py` | Supabase market-data price lookup |
 | `pricing.py` | Tick rounding for marketplace prices |
-| `boost.py` | Apply stat boosters (endpoint broken — ready when fixed) |
+| `boost.py` | Apply stat boosters — watchlist-driven, inventory-aware, preferred-stat with fallback |
 | `watchlist_buy.json` | Players whose daily packs to buy |
 | `watchlist_list.json` | Passes to list once they hit rare |
+| `watchlist_boost.json` | Passes to boost — one preferred stat per player |
 | `state/` | Daily idempotency state files |
 | `claims/` | Daily OTD claim JSON snapshots (gitignored) |
 | `players/` | Pass list snapshots per account/sport |

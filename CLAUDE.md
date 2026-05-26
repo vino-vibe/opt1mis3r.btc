@@ -1,11 +1,11 @@
-# opt1ms3r — project status (2026-05-19)
+# opt1ms3r — project status (2026-05-23)
 
 ## What this is
 
 A local CLI automation agent for the Real Sports app. It runs a daily ritual —
 buy player packs, claim OTD historical earnings, list passes on the marketplace
-once they hit the rare rating threshold. All scripts run on your Mac, no cloud,
-no shared infra.
+once they hit the rare rating threshold, and apply stat boosts from a per-player
+watchlist. All scripts run on your Mac, no cloud, no shared infra.
 
 ---
 
@@ -14,7 +14,7 @@ no shared infra.
 | Module | File | Notes |
 |---|---|---|
 | Auth headers + rate limiting | `client.py` | Sentry-trace/baggage, native+request tokens, per-call jitter |
-| Account fingerprint config | `accounts.py` | Reads `.env`; per-account UUID/device/version with fallbacks |
+| Account fingerprint config | `accounts.py` | Reads `.env`; per-account UUID/device/version/numeric_id with fallbacks |
 | Token generation | `token_generation.py` | HMAC-SHA256 native token + Hashids request token |
 | OTD fetch | `get_claims.py` | Saves `claims/{account}_claims_{date}.json` |
 | OTD claim | `do_claims.py` | Rate-limited PUT per sport, dry-run default, respects `claimsRemaining` |
@@ -23,7 +23,15 @@ no shared infra.
 | Marketplace listing | `list_pass.py` | Rarity gate (≥80), meowbot pricing, tick rounding, idempotent |
 | Meowbot pricing | `meowbot.py` | Supabase market-data; computes `rating × twAvgRR` |
 | Tick rounding | `pricing.py` | 100-tick below 2000 rax, 500-tick at 2000+ rax |
-| Boost | `boost.py` | Script is ready; boost endpoint broken upstream — waiting on friend's fix |
+| Boost | `boost.py` | Watchlist-driven, preferred stat per player, toggle-safe, idempotent |
+
+---
+
+## App version (current as of 2026-05-22)
+
+- `real-version: 32` (was 31)
+- `sentry-release: vg.real-10.150` (was vg.real-10.145)
+- Update `.env`: `HDERDAR_APP_VERSION=32`, `SENTRY_RELEASE=vg.real-10.150`
 
 ---
 
@@ -34,9 +42,10 @@ no shared infra.
 - `GET /cardhistoricalearnings?day=YYYY-MM-DD` — OTD claim list
 - `PUT /cardhistoricalearnings` — body: `{userPassId}`
 - `GET /userpasses/{userId}/passes` — player pass list per sport
-- `GET /userpasses/{cardId}` — pass state: `boostValue`, `boostInfo.baseRarity`
+- `GET /userpasses/{cardId}` — pass state: `boostValue`, `boostInfo.baseRarity`, `boosterCardInfo`
 - `POST /cardmarketplacelistings` — listing body confirmed; `durationInHours: 72` confirmed
-- `PUT /userpassboostercards/{id}/rarity/{rarity}` — body: `{statBoostKey}` (endpoint broken server-side)
+- `PUT /userpassboostercards/{cardId}/rarity/{rarity}` — body: `{statBoostKey}`; toggle (same call applies and removes)
+- `GET /collectingpacks/wnba/season/2026/shopinfo?entityId=X&entityType=player&source=userpasscontrol` — alternative WNBA pack endpoint (request captured; response pending)
 
 ---
 
@@ -50,7 +59,18 @@ no shared infra.
 | 4 | `POST /cardmarketplacelistings/{id}/bid` body | Player pass scanner |
 | 5 | Listings GET pagination params | Scanner page-through |
 | 6 | "Top bid is mine" field on listing object | Avoid self-overbidding in scanner |
-| 7 | Boost endpoint server-side fix | Boost step |
+| 7 | WNBA pack shopinfo response | Confirming correct endpoint format for WNBA packs |
+
+---
+
+## Boost design note
+
+The boost inventory GET (`/userpassboostercards/{numericId}/entity/player`) was
+captured from a different account. Rather than block on finding HDERDAR's numeric
+ID, `boost.py` was simplified: no pre-flight inventory check. It attempts the
+preferred stat PUT directly; on failure it logs the error and skips. Update
+`preferred_stat` in `watchlist_boost.json` manually if a stat category runs out.
+`HDERDAR_NUMERIC_ID` stays in `.env` / `AccountFingerprint` for future use.
 
 ---
 
@@ -67,7 +87,7 @@ no shared infra.
 All CRIT and HIGH items in `RED_FLAGS.md` are fixed. Open MED items:
 - #11 — daily run at randomized time (solved by orchestrator when built)
 - #12 — interstitial reads between writes
-- #15 — boost stat weighting per player (not uniform-random)
+- #15 — boost stat is now per-player preferred, not uniform-random
 - #16 — listing price multipliers are tunable per watchlist entry (planned)
 - #17 — listing duration hardcoded 72h; needs alternatives captured first
 
@@ -84,8 +104,8 @@ Streamlit dashboard (`app.py`) was explored but the setup wasn't working. Parked
 1. ~~Listing module~~ — done
 2. ~~Pack-buy module~~ — done
 3. ~~Buy → list pipeline with watchlists~~ — done (separate CLI scripts)
-4. **Daily orchestrator** — randomized morning trigger, sequenced modules
-5. 3rd OTD bet — after endpoint capture
-6. Auto-boost — after friend's fix
+4. ~~Boost framework~~ — done
+5. **Daily orchestrator** — randomized morning trigger, sequenced modules
+6. 3rd OTD bet — after endpoint capture
 7. Real Pro detection + gating
 8. Player pass scanner — after morning ritual ships reliably

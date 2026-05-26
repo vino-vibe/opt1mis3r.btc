@@ -51,6 +51,7 @@ def get_account(name: str) -> AccountFingerprint:
     device_uuid = _with_fallback(f"{name}_DEVICE_UUID", "DEFAULT_DEVICE_UUID")
     device_name = _with_fallback(f"{name}_DEVICE_NAME", "DEFAULT_DEVICE_NAME")
     app_version = _with_fallback(f"{name}_APP_VERSION", "DEFAULT_APP_VERSION")
+    numeric_id  = _with_fallback(f"{name}_NUMERIC_ID",  "DEFAULT_NUMERIC_ID") or ""
 
     missing = []
     if not device_uuid: missing.append("DEVICE_UUID")
@@ -68,6 +69,7 @@ def get_account(name: str) -> AccountFingerprint:
         device_uuid=device_uuid,
         device_name=device_name,
         app_version=app_version,
+        numeric_id=numeric_id,
     )
 
 

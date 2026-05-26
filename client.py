@@ -50,7 +50,8 @@ class AccountFingerprint:
     auth_info: str            # "<user_id>!<token>!<device_uuid>"
     device_uuid: str          # UPPERCASE iOS-style UUID (different from auth_info's uuid)
     device_name: str          # e.g. "iPhone15,3"
-    app_version: str          # e.g. "31"
+    app_version: str          # e.g. "32"
+    numeric_id: str = ""      # numeric account ID used by /userpassboostercards inventory endpoint
 
 
 def _sentry_pair() -> tuple[str, str]:
