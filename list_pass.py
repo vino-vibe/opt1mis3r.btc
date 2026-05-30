@@ -187,5 +187,91 @@ def main() -> int:
     return 0
 
 
+def _list_pass_entry_gen(client, entry, state):
+    """Sub-generator: yields log lines, returns True if pass was listed."""
+    label = entry["label"]
+    card_id = entry["cardId"]
+    entity_id = entry["entityId"]
+    season = entry["season"]
+
+    if card_id in state["listed_card_ids"]:
+        yield f"[ ] {label} (card {card_id}): already listed today; skip"
+        return False
+
+    yield f"[?] {label} (card {card_id}, entity {entity_id})"
+
+    resp = client.get(f"/userpasses/{card_id}")
+    if resp.status_code != 200:
+        yield f"  [!] fetch pass {card_id} failed: {resp.status_code} {resp.text[:200]}"
+        return False
+    payload = resp.json()
+    pass_obj = payload.get("pass") or {}
+    boost_value = pass_obj.get("boostValue")
+    base_rarity = (pass_obj.get("boostInfo") or {}).get("baseRarity")
+    if boost_value is None or base_rarity is None:
+        yield f"  [!] pass {card_id} response missing boostValue/baseRarity"
+        return False
+    try:
+        rating = float(boost_value)
+        base_rarity = int(base_rarity)
+    except (TypeError, ValueError) as e:
+        yield f"  [!] pass {card_id} couldn't parse rating/rarity: {e}"
+        return False
+
+    if base_rarity < RARITY_RARE:
+        yield f"    rating={rating:.1f} baseRarity={base_rarity} (<Rare={RARITY_RARE}) — skip"
+        return False
+
+    try:
+        rec = recommended_price_for_pass(entity_id, season, rating, rarity=base_rarity)
+    except Exception as e:
+        yield f"    [!] meowbot fetch failed: {e}"
+        return False
+    if rec is None:
+        yield f"    [!] meowbot returned no price (sample size too low); skip"
+        return False
+
+    min_bid = round_down_tick(rec * BID_MULTIPLIER)
+    buy_now = round_up_tick(rec * BUY_NOW_MULTIPLIER)
+    if min_bid >= buy_now:
+        yield f"    [!] derived prices collapse: bid={min_bid} buyNow={buy_now}; skip"
+        return False
+    yield f"    rating={rating:.1f}  meowbot≈{rec:.0f}  →  bid={min_bid}  buyNow={buy_now}"
+
+    body = build_listing_body(card_id, min_bid, buy_now)
+    resp = client.post("/cardmarketplacelistings", json_body=body, confirm_write=True)
+    if resp.status_code != 200:
+        yield f"    [!] list failed: {resp.status_code} {resp.text[:300]}"
+        return False
+
+    yield f"    [+] listed"
+    state["listed_card_ids"].append(card_id)
+    save_state(state)
+    return True
+
+
+def run(account="HDERDAR", live=False):
+    """Generator version — yields log lines instead of printing."""
+    if not WATCHLIST_PATH.exists():
+        yield f"[X] missing {WATCHLIST_PATH}"
+        return
+    items = json.loads(WATCHLIST_PATH.read_text())
+    watchlist = [it for it in items if it.get("enabled", True)]
+
+    fp = get_account(account)
+    min_gap, max_gap = CADENCE_WRITE
+    client = RateLimitedClient(fp, min_gap_s=min_gap, max_gap_s=max_gap, dry_run=not live)
+    state = load_state()
+    yield f"[i] account={account}  live={live}  watchlist={len(watchlist)} pass(es)"
+
+    n_listed = 0
+    for entry in watchlist:
+        listed = yield from _list_pass_entry_gen(client, entry, state)
+        if listed:
+            n_listed += 1
+
+    yield f"\n[i] done — listed {n_listed} pass(es)"
+
+
 if __name__ == "__main__":
     sys.exit(main())

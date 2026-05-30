@@ -292,6 +292,15 @@ def boost_player(
         else:
             preferred = fallback
 
+    fallback_rarity = entry.get("fallback_rarity")
+    if fallback_rarity is not None and rarity != fallback_rarity:
+        if not stat_is_available(client, fp, sport, rarity, preferred):
+            print(f"    {RARITY_LABELS.get(rarity, rarity)} {preferred} inventory empty — trying {RARITY_LABELS.get(fallback_rarity, fallback_rarity)}")
+            rarity = fallback_rarity
+            if not stat_is_available(client, fp, sport, rarity, preferred):
+                print(f"[ ] {label}: {preferred} unavailable at both rarities — skipping")
+                return False
+
     if card_id in state["boosted_card_ids"]:
         print(f"[ ] {label} (card {card_id}): already boosted today; skip")
         return False
@@ -305,7 +314,8 @@ def boost_player(
     else:
         print(f"    currently applied: None")
 
-    if applied == preferred:
+    # Compare by API key to avoid cross-sport name collisions (BLK/R both="5", REB/RBI both="3")
+    if STAT_KEYS.get(applied, "") == STAT_KEYS.get(preferred, ""):
         rar_label = RARITY_LABELS.get(applied_rarity, f"rarity-{applied_rarity}")
         if applied_rarity is not None and applied_rarity > rarity:
             print(f"    {preferred} already active at higher rarity ({rar_label}) — skip to preserve")
@@ -455,6 +465,205 @@ def main() -> int:
 
     print(f"\n[i] grand total — {total} boost(s) across {len(fps)} account(s)")
     return 0
+
+
+def _boost_player_gen(client, fp, entry, state):
+    """Sub-generator: yields log lines, returns True if boost was applied."""
+    label = entry["label"]
+    card_id = entry["cardId"]
+    sport = entry.get("sport", "")
+    rarity = entry.get("rarity", DEFAULT_RARITY)
+    preferred = entry["preferred_stat"]
+    fallback = entry.get("fallback_stat")
+
+    if preferred == "auto":
+        resolved = get_auto_stat(client, fp, sport, rarity)
+        if not resolved:
+            yield f"[ ] {label}: could not resolve auto stat — skipping"
+            return False
+        preferred = resolved
+        yield f"    auto→ {preferred}"
+    elif fallback and not stat_is_available(client, fp, sport, rarity, preferred):
+        yield f"    {preferred} inventory empty — falling back to {fallback!r}"
+        if fallback == "auto":
+            resolved = get_auto_stat(client, fp, sport, rarity)
+            if not resolved:
+                yield f"[ ] {label}: K out and auto fallback failed — skipping"
+                return False
+            preferred = resolved
+            yield f"    fallback auto→ {preferred}"
+        else:
+            preferred = fallback
+
+    fallback_rarity = entry.get("fallback_rarity")
+    if fallback_rarity is not None and rarity != fallback_rarity:
+        if not stat_is_available(client, fp, sport, rarity, preferred):
+            yield f"    {RARITY_LABELS.get(rarity, rarity)} {preferred} inventory empty — trying {RARITY_LABELS.get(fallback_rarity, fallback_rarity)}"
+            rarity = fallback_rarity
+            if not stat_is_available(client, fp, sport, rarity, preferred):
+                yield f"[ ] {label}: {preferred} unavailable at both rarities — skipping"
+                return False
+
+    if card_id in state["boosted_card_ids"]:
+        yield f"[ ] {label} (card {card_id}): already boosted today; skip"
+        return False
+
+    yield f"[?] {label} (card {card_id})  preferred={preferred}  target_rarity={RARITY_LABELS.get(rarity, rarity)}"
+
+    resp = client.get(f"/userpasses/{card_id}")
+    if resp.status_code != 200:
+        yield f"  [!] pass fetch failed: {resp.status_code} {resp.text[:200]}"
+        return False
+    pass_payload = resp.json()
+    pass_obj = pass_payload.get("pass") or {}
+    boost_card_info = pass_obj.get("boosterCardInfo")
+    if boost_card_info:
+        raw_key = str(boost_card_info.get("statBoostKey", ""))
+        raw_rar = boost_card_info.get("rarity")
+        # Use preferred's key to reverse-lookup the name when keys collide across sports
+        # (BLK and R both map to key "5"; REB and RBI both map to key "3").
+        applied = (preferred if raw_key == STAT_KEYS.get(preferred, "") else KEY_TO_STAT.get(raw_key))
+        applied_rarity = int(raw_rar) if raw_rar is not None else None
+    else:
+        applied, applied_rarity, raw_key = None, None, ""
+
+    if applied:
+        rar_label = RARITY_LABELS.get(applied_rarity, f"rarity-{applied_rarity}")
+        yield f"    currently applied: {applied} ({rar_label})"
+    else:
+        yield f"    currently applied: None"
+
+    if raw_key == STAT_KEYS.get(preferred, ""):
+        rar_label = RARITY_LABELS.get(applied_rarity, f"rarity-{applied_rarity}")
+        if applied_rarity is not None and applied_rarity > rarity:
+            yield f"    {preferred} already active at higher rarity ({rar_label}) — skip to preserve"
+        else:
+            yield f"    {preferred} already active ({rar_label}) — skip (would toggle off)"
+        return False
+
+    key = STAT_KEYS[preferred]
+    path = f"/userpassboostercards/{card_id}/rarity/{rarity}"
+    resp = client.put(path, json_body={"statBoostKey": key}, confirm_write=True)
+
+    if resp.status_code != 200:
+        try:
+            err = resp.json().get("message", resp.text)
+        except (json.JSONDecodeError, ValueError):
+            err = resp.text
+        yield f"    [!] boost failed (HTTP {resp.status_code}): {err}"
+        return False
+
+    try:
+        body = resp.json()
+    except (json.JSONDecodeError, ValueError):
+        yield f"    [!] response not JSON: {resp.text[:200]}"
+        return False
+
+    if not body.get("success", False):
+        msg = body.get("message", "no message in response")
+        low = msg.lower()
+        if any(w in low for w in ("tournament", "game", "lock", "active", "contest", "scheduled")):
+            yield f"    [~] blocked — schedule/tournament lock: {msg}"
+            if sport in SPORTS_WITH_CONSISTENT_SCHEDULING:
+                _sport_hardlocked.add(sport)
+                yield f"    [!] hard-locking sport={sport} for this run — all remaining {sport} entries skipped"
+            else:
+                entity_id = entry.get("entityId")
+                if entity_id is not None:
+                    _entity_locked.add(entity_id)
+        else:
+            yield f"    [!] boost rejected by API: {msg}"
+        return False
+
+    yield f"    [+] applied {preferred} (key={key}, rarity={rarity})"
+    state["boosted_card_ids"].append(card_id)
+    save_state(fp.name, state)
+    return True
+
+
+def run(account=None, all_accounts=False, live=False, sport=None):
+    """Generator version — yields log lines instead of printing. Resets module globals."""
+    global _sport_hardlocked, _entity_locked, _counts_cache
+    _sport_hardlocked = set()
+    _entity_locked = set()
+    _counts_cache = {}
+
+    if all_accounts:
+        fps = get_all_accounts()
+    elif account:
+        fps = [get_account(account)]
+    else:
+        fps = [get_account("HDERDAR")]
+
+    if not WATCHLIST_PATH.exists():
+        yield f"[X] missing {WATCHLIST_PATH}"
+        return
+    items = json.loads(WATCHLIST_PATH.read_text())
+    enabled = [it for it in items if it.get("enabled", True)]
+
+    for it in enabled:
+        stat = it.get("preferred_stat", "")
+        if stat != "auto" and stat not in STAT_KEYS:
+            yield (f"[X] unknown preferred_stat '{stat}' for {it.get('label')}. "
+                   f"Valid: {', '.join(STAT_KEYS)} or 'auto'")
+            return
+
+    watchlist = enabled
+    if sport:
+        watchlist = [e for e in watchlist if e.get("sport") == sport]
+        if not watchlist:
+            yield f"[X] no enabled entries for sport={sport!r}"
+            return
+
+    grand_total = 0
+    for fp in fps:
+        min_gap, max_gap = CADENCE_WRITE
+        client = RateLimitedClient(fp, min_gap_s=min_gap, max_gap_s=max_gap, dry_run=not live)
+        state = load_state(fp.name)
+
+        entity_maps: dict[str, dict[int, int]] = {}
+        resolved: list[dict] = []
+        for entry in watchlist:
+            sp = entry["sport"]
+            if sp not in entity_maps:
+                entity_maps[sp] = build_entity_map(fp.name, sp)
+            if "cardId" not in entry:
+                entity_id = entry.get("entityId")
+                card_id = entity_maps[sp].get(entity_id)
+                if card_id is None:
+                    yield f"[ ] {entry['label']}: not in players/{fp.name}_{sp}.json — skip"
+                    yield ""
+                    continue
+                entry = {**entry, "cardId": card_id}
+            resolved.append(entry)
+
+        yield f"\n{'='*60}"
+        yield f"[i] account={fp.name}  live={live}  resolved={len(resolved)}/{len(watchlist)}"
+        yield f"{'='*60}"
+
+        n_boosted = 0
+        for entry in resolved:
+            sp = entry.get("sport", "")
+            entity_id = entry.get("entityId")
+
+            if sp in _sport_hardlocked:
+                yield f"[ ] {entry['label']}: {sp} is hard-locked this run — skip"
+                yield ""
+                continue
+            if entity_id is not None and entity_id in _entity_locked:
+                yield f"[ ] {entry['label']}: entityId {entity_id} locked on earlier account — skip"
+                yield ""
+                continue
+
+            boosted = yield from _boost_player_gen(client, fp, entry, state)
+            if boosted:
+                n_boosted += 1
+            yield ""
+
+        yield f"[i] {fp.name} done — boosted {n_boosted} pass(es)"
+        grand_total += n_boosted
+
+    yield f"\n[i] grand total — {grand_total} boost(s) across {len(fps)} account(s)"
 
 
 if __name__ == "__main__":

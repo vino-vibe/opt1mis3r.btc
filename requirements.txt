@@ -1,3 +1,6 @@
 requests
 python-dotenv
 hashids
+fastapi
+uvicorn[standard]
+sse-starlette

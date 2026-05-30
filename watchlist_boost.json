@@ -1,22 +1,24 @@
 [
-  { "label": "Caitlin Clark",    "entityId": 624,     "sport": "wnba", "season": 2026, "preferred_stat": "3PM",    "rarity": 3, "enabled": true },
-  { "label": "Kelsey Plum",      "entityId": 596,     "sport": "wnba", "season": 2026, "preferred_stat": "3PM",    "rarity": 3, "enabled": true },
+  { "label": "Caitlin Clark",    "entityId": 624,     "sport": "wnba", "season": 2026, "preferred_stat": "3PM",    "rarity": 4, "fallback_rarity": 3, "enabled": true },
+  { "label": "Kelsey Plum",      "entityId": 596,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 4, "fallback_rarity": 3, "enabled": true },
   { "label": "Sabrina Ionescu",  "entityId": 637,     "sport": "wnba", "season": 2026, "preferred_stat": "3PM",    "rarity": 3, "enabled": true },
   { "label": "Rhyne Howard",     "entityId": 616,     "sport": "wnba", "season": 2026, "preferred_stat": "3PM",    "rarity": 3, "enabled": true },
+  { "label": "Marina Mabrey",   "entityId": 697,     "sport": "wnba", "season": 2026, "preferred_stat": "3PM",    "rarity": 3, "enabled": true },
 
-  { "label": "A'ja Wilson",      "entityId": 598,     "sport": "wnba", "season": 2026, "preferred_stat": "BLK",    "rarity": 3, "enabled": true },
+  { "label": "A'ja Wilson",      "entityId": 598,     "sport": "wnba", "season": 2026, "preferred_stat": "BLK",    "rarity": 4, "fallback_rarity": 3, "enabled": true },
   { "label": "Aliyah Boston",    "entityId": 627,     "sport": "wnba", "season": 2026, "preferred_stat": "BLK",    "rarity": 3, "enabled": true },
   { "label": "Breanna Stewart",  "entityId": 639,     "sport": "wnba", "season": 2026, "preferred_stat": "BLK",    "rarity": 3, "enabled": true },
   { "label": "Cameron Brink",    "entityId": 716,     "sport": "wnba", "season": 2026, "preferred_stat": "BLK",    "rarity": 3, "enabled": true },
 
-  { "label": "Paige Bueckers",   "entityId": 4322740, "sport": "wnba", "season": 2026, "preferred_stat": "STL",    "rarity": 3, "enabled": true },
+  { "label": "Paige Bueckers",   "entityId": 4322740, "sport": "wnba", "season": 2026, "preferred_stat": "STL",    "rarity": 4, "fallback_rarity": 3, "enabled": true },
   { "label": "Courtney Williams","entityId": 654,     "sport": "wnba", "season": 2026, "preferred_stat": "STL",    "rarity": 3, "enabled": true },
   { "label": "Chennedy Carter",  "entityId": 703,     "sport": "wnba", "season": 2026, "preferred_stat": "STL",    "rarity": 3, "enabled": true },
+  { "label": "Jordin Canada",    "entityId": 606,     "sport": "wnba", "season": 2026, "preferred_stat": "STL",    "rarity": 3, "enabled": true },
 
   { "label": "Angel Reese",      "entityId": 701,     "sport": "wnba", "season": 2026, "preferred_stat": "REB",    "rarity": 3, "enabled": true },
   { "label": "Kiki Iriafen",     "entityId": 4322743, "sport": "wnba", "season": 2026, "preferred_stat": "REB",    "rarity": 3, "enabled": true },
   { "label": "Dearica Hamby",    "entityId": 718,     "sport": "wnba", "season": 2026, "preferred_stat": "REB",    "rarity": 3, "enabled": true },
-  { "label": "Nneka Ogwumike",   "entityId": 738,     "sport": "wnba", "season": 2026, "preferred_stat": "REB",    "rarity": 3, "enabled": true },
+  { "label": "Nneka Ogwumike",   "entityId": 738,     "sport": "wnba", "season": 2026, "preferred_stat": "STL",    "rarity": 3, "enabled": true },
 
   { "label": "Brittney Sykes",   "entityId": 679,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
   { "label": "Kelsey Mitchell",  "entityId": 626,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
@@ -27,7 +29,7 @@
   { "label": "Napheesa Collier",  "entityId": 650,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
   { "label": "Sonia Citron",      "entityId": 4322741, "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
 
-  { "label": "Alyssa Thomas",    "entityId": 745,     "sport": "wnba", "season": 2026, "preferred_stat": "AST",    "rarity": 3, "enabled": true },
+  { "label": "Alyssa Thomas",    "entityId": 745,     "sport": "wnba", "season": 2026, "preferred_stat": "AST",    "rarity": 4, "fallback_rarity": 3, "enabled": true },
   { "label": "Veronica Burton",  "entityId": 759,     "sport": "wnba", "season": 2026, "preferred_stat": "AST",    "rarity": 3, "enabled": true },
   { "label": "Chelsea Gray",     "entityId": 602,     "sport": "wnba", "season": 2026, "preferred_stat": "AST",    "rarity": 3, "enabled": true },
   { "label": "Jackie Young",     "entityId": 597,     "sport": "wnba", "season": 2026, "preferred_stat": "AST",    "rarity": 3, "enabled": true },
@@ -101,5 +103,6 @@
   { "label": "Logan Gilbert",       "entityId": 669302,  "sport": "mlb", "season": 2026, "preferred_stat": "auto", "rarity": 3, "enabled": true },
   { "label": "Braxton Ashcraft",    "entityId": 677952,  "sport": "mlb", "season": 2026, "preferred_stat": "auto", "rarity": 3, "enabled": true },
   { "label": "Ben Brown",           "entityId": 676962,  "sport": "mlb", "season": 2026, "preferred_stat": "auto", "rarity": 3, "enabled": true },
-  { "label": "Casey Mize",          "entityId": 663554,  "sport": "mlb", "season": 2026, "preferred_stat": "auto", "rarity": 3, "enabled": true }
+  { "label": "Casey Mize",          "entityId": 663554,  "sport": "mlb", "season": 2026, "preferred_stat": "auto", "rarity": 3, "enabled": true },
+  { "label": "Jessica Shepard",     "entityId": 653,     "sport": "wnba", "season": 2026, "preferred_stat": "REB", "rarity": 4, "fallback_rarity": 3, "enabled": true }
 ]
