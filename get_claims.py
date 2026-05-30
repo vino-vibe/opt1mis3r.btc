@@ -46,5 +46,24 @@ def main() -> None:
         fetch_account_claims(client, fp.name, output_dir)
 
 
+def run(account=None):
+    """Generator version of main() — yields log lines instead of printing."""
+    output_dir = Path("claims")
+    output_dir.mkdir(exist_ok=True)
+    fps = [get_account(account)] if account else get_all_accounts()
+    for fp in fps:
+        today = date.today().isoformat()
+        client = RateLimitedClient(fp)
+        cache_buster = int(time.time() * 1000)
+        resp = client.get("/cardhistoricalearnings", params={"day": today, "_": cache_buster})
+        if resp.status_code != 200:
+            yield f"{fp.name} Error: {resp.status_code} - {resp.text[:300]}"
+            continue
+        output_path = output_dir / f"{fp.name}_claims_{today}.json"
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump(resp.json(), f, indent=2, ensure_ascii=False)
+        yield f"{fp.name} claims data saved to {output_path}"
+
+
 if __name__ == "__main__":
     main()
