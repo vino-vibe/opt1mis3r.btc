@@ -58,25 +58,48 @@ SPORTS_WITH_CONSISTENT_SCHEDULING: set[str] = {"golf"}
 _sport_hardlocked: set[str] = set()   # golf: first lock stops all subsequent golf
 _entity_locked: set[int]   = set()    # wnba/etc: locked entityIds skipped on later accounts
 
-STAT_KEYS: dict[str, str] = {
-    # Basketball
-    "PTS":    "1",
-    "AST":    "2",
-    "REB":    "3",
-    "STL":    "4",
-    "BLK":    "5",
-    "3PM":    "21",
-    # Golf
-    "EAGLE":  "12",
-    "BIRDIE": "11",
-    # Baseball
-    "K":      "70",
-    "R":      "5",
-    "RBI":    "3",
-    "2B":     "10",
-    "HR_3B":  "2_11",
+STAT_KEYS_BY_SPORT: dict[str, dict[str, str]] = {
+    "nba": {
+        "PTS":    "1",
+        "AST":    "2",
+        "REB":    "3",
+        "STL":    "4",
+        "BLK":    "5",
+        "3PM":    "21",
+    },
+    "wnba": {
+        "PTS":    "1",
+        "AST":    "2",
+        "REB":    "3",
+        "STL":    "4",
+        "BLK":    "5",
+        "3PM":    "21",
+    },
+    "golf": {
+        "EAGLE":  "12",
+        "BIRDIE": "11",
+    },
+    "mlb": {
+        "K":      "70",
+        "R":      "5",
+        "RBI":    "3",
+        "2B":     "10",
+        "HR_3B":  "2_11",
+    },
 }
-KEY_TO_STAT: dict[str, str] = {v: k for k, v in STAT_KEYS.items()}
+
+
+def stat_keys_for_sport(sport: str) -> dict[str, str]:
+    return STAT_KEYS_BY_SPORT.get(sport, {})
+
+
+def stat_to_api_key(sport: str, stat_name: str) -> str | None:
+    return stat_keys_for_sport(sport).get(stat_name)
+
+
+def api_key_to_stat(sport: str, api_key: str) -> str | None:
+    reverse = {v: k for k, v in stat_keys_for_sport(sport).items()}
+    return reverse.get(api_key)
 
 DEFAULT_RARITY = 3  # Rare — saves Epic/Legendary for playoffs
 
@@ -112,9 +135,11 @@ def load_watchlist() -> list[dict]:
     enabled = [it for it in items if it.get("enabled", True)]
     for it in enabled:
         stat = it.get("preferred_stat", "")
-        if stat != "auto" and stat not in STAT_KEYS:
+        sport = it.get("sport", "")
+        valid_stats = stat_keys_for_sport(sport)
+        if stat != "auto" and stat not in valid_stats:
             print(f"[X] unknown preferred_stat '{stat}' for {it.get('label')}. "
-                  f"Valid: {', '.join(STAT_KEYS)} or 'auto'")
+                  f"Valid for {sport}: {', '.join(valid_stats) or '(none)'} or 'auto'")
             sys.exit(2)
     return enabled
 
@@ -182,7 +207,7 @@ def get_auto_stat(
     if not counts:
         return None
     best_key = max(counts, key=counts.get)
-    return KEY_TO_STAT.get(best_key)
+    return api_key_to_stat(sport, best_key)
 
 
 def stat_is_available(
@@ -193,7 +218,7 @@ def stat_is_available(
     stat_name: str,
 ) -> bool:
     """Return True if the account has at least one booster for stat_name at target_rarity."""
-    api_key = STAT_KEYS.get(stat_name)
+    api_key = stat_to_api_key(sport, stat_name)
     if not api_key:
         return False
     counts = _fetch_inventory_counts(client, fp, sport, target_rarity)
@@ -204,7 +229,11 @@ def stat_is_available(
 # Current pass state
 # ---------------------------------------------------------------------------
 
-def get_applied_boost(client: RateLimitedClient, card_id: int) -> tuple[str | None, int | None]:
+def get_applied_boost(
+    client: RateLimitedClient,
+    card_id: int,
+    sport: str,
+) -> tuple[str | None, int | None]:
     """
     Return (stat_name, rarity) for the currently active boost, or (None, None).
     rarity is the integer rarity of the booster card applied (3=Rare, 4=Epic, 5=Legendary).
@@ -220,7 +249,7 @@ def get_applied_boost(client: RateLimitedClient, card_id: int) -> tuple[str | No
         return None, None
     raw_key  = str(boost_card_info.get("statBoostKey", ""))
     raw_rar  = boost_card_info.get("rarity")
-    stat     = KEY_TO_STAT.get(raw_key)
+    stat     = api_key_to_stat(sport, raw_key)
     rarity   = int(raw_rar) if raw_rar is not None else None
     return stat, rarity
 
@@ -269,7 +298,7 @@ def boost_player(
 
     print(f"[?] {label} (card {card_id})  preferred={preferred}  target_rarity={RARITY_LABELS.get(rarity, rarity)}")
 
-    applied, applied_rarity = get_applied_boost(client, card_id)
+    applied, applied_rarity = get_applied_boost(client, card_id, sport)
     if applied:
         rar_label = RARITY_LABELS.get(applied_rarity, f"rarity-{applied_rarity}")
         print(f"    currently applied: {applied} ({rar_label})")
@@ -284,7 +313,10 @@ def boost_player(
             print(f"    {preferred} already active ({rar_label}) — skip (would toggle off)")
         return False
 
-    key  = STAT_KEYS[preferred]
+    key  = stat_to_api_key(sport, preferred)
+    if not key:
+        print(f"    [!] unknown stat '{preferred}' for sport={sport}")
+        return False
     path = f"/userpassboostercards/{card_id}/rarity/{rarity}"
     resp = client.put(path, json_body={"statBoostKey": key}, confirm_write=True)
 
@@ -404,7 +436,7 @@ def main() -> int:
     elif args.account:
         fps = [get_account(args.account)]
     else:
-        fps = [get_account("HDERDAR")]
+        fps = [get_account("RAINCANE")]
 
     global WATCHLIST_PATH
     if args.watchlist:

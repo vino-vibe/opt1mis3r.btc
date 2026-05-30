@@ -22,6 +22,10 @@
   { "label": "Kelsey Mitchell",  "entityId": 626,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
   { "label": "Allisha Gray",     "entityId": 605,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
   { "label": "Satou Sabally",    "entityId": 758,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
+  { "label": "Marina Mabrey",    "entityId": 697,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
+  { "label": "Kahleah Copper",   "entityId": 670,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
+  { "label": "Napheesa Collier",  "entityId": 650,     "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
+  { "label": "Sonia Citron",      "entityId": 4322741, "sport": "wnba", "season": 2026, "preferred_stat": "PTS",    "rarity": 3, "enabled": true },
 
   { "label": "Alyssa Thomas",    "entityId": 745,     "sport": "wnba", "season": 2026, "preferred_stat": "AST",    "rarity": 3, "enabled": true },
   { "label": "Veronica Burton",  "entityId": 759,     "sport": "wnba", "season": 2026, "preferred_stat": "AST",    "rarity": 3, "enabled": true },
@@ -56,7 +60,12 @@
   { "label": "Matt Fitzpatrick", "entityId": 40098,   "sport": "golf", "season": 2026, "preferred_stat": "auto",   "rarity": 3, "enabled": true },
   { "label": "Robert MacIntyre", "entityId": 52215,   "sport": "golf", "season": 2026, "preferred_stat": "auto",   "rarity": 3, "enabled": true },
   { "label": "Keith Mitchell",   "entityId": 39546,   "sport": "golf", "season": 2026, "preferred_stat": "auto",   "rarity": 3, "enabled": true },
+  { "label": "Justin Thomas",    "entityId": 33448,   "sport": "golf", "season": 2026, "preferred_stat": "auto",   "rarity": 3, "enabled": true },
+  { "label": "J.J. Spaun",       "entityId": 39324,   "sport": "golf", "season": 2026, "preferred_stat": "auto",   "rarity": 3, "enabled": true },
+  { "label": "Justin Rose",      "entityId": 22405,   "sport": "golf", "season": 2026, "preferred_stat": "auto",   "rarity": 3, "enabled": true },
+  { "label": "Sepp Straka",      "entityId": 49960,   "sport": "golf", "season": 2026, "preferred_stat": "auto",   "rarity": 3, "enabled": true },
 
+  { "label": "Aaron Judge",         "entityId": 592450,  "sport": "mlb", "season": 2026, "preferred_stat": "HR_3B", "fallback_stat": "auto", "rarity": 3, "enabled": true },
   { "label": "Dylan Cease",         "entityId": 656302,  "sport": "mlb", "season": 2026, "preferred_stat": "K",    "fallback_stat": "auto", "rarity": 3, "enabled": true },
   { "label": "Jacob Misiorowski",   "entityId": 694819,  "sport": "mlb", "season": 2026, "preferred_stat": "K",    "fallback_stat": "auto", "rarity": 3, "enabled": true },
   { "label": "Cristopher Sánchez",  "entityId": 650911,  "sport": "mlb", "season": 2026, "preferred_stat": "K",    "fallback_stat": "auto", "rarity": 3, "enabled": true },
