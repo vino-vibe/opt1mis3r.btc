@@ -1,4 +1,4 @@
-# opt1ms3r — project status (2026-05-23)
+# opt1mis3r — project status (2026-05-23)
 
 ## What this is
 

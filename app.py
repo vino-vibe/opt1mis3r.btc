@@ -1,5 +1,5 @@
 """
-app.py — basic Streamlit dashboard for opt1ms3r.
+app.py — basic Streamlit dashboard for opt1mis3r.
 
 Launch:
     streamlit run app.py
@@ -37,8 +37,8 @@ TODAY = date.today().isoformat()
 
 
 # ─── PAGE CONFIG ───────────────────────────────────────────────────────────────
-st.set_page_config(page_title="opt1ms3r", page_icon="🎯", layout="wide")
-st.title("opt1ms3r — daily ritual")
+st.set_page_config(page_title="opt1mis3r", page_icon="🎯", layout="wide")
+st.title("opt1mis3r — daily ritual")
 st.caption(f"{TODAY}  ·  Local automation cockpit for Real Sports")
 
 

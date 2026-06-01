@@ -1,5 +1,5 @@
 """
-Shared client for opt1ms3r — handles auth header construction, sentry headers,
+Shared client for opt1mis3r — handles auth header construction, sentry headers,
 rate limiting with jitter, and a dry-run posture. Used by every script.
 
 Why this exists separately from the friend's per-file build_headers():

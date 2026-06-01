@@ -6,3 +6,7 @@ __pycache__/
 .vscode/
 .DS_Store
 .env
+state/
+players/
+claims/
+frontend/node_modules/**

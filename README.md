@@ -1,4 +1,4 @@
-# opt1ms3r
+# opt1mis3r
 
 Local automation agent for Real Sports. Runs a daily ritual on your Mac: buy player packs, claim OTD historical earnings, and list passes on the marketplace once they cross the rare rating threshold. Everything is CLI-only, dry-run by default, and designed to look like a real iOS user.
 
@@ -17,7 +17,7 @@ Each script is a standalone CLI tool you can run individually or chain together.
 ### 1. Create a virtual environment
 
 ```bash
-cd opt1ms3r.btc-master
+cd opt1mis3r.btc-master
 python3 -m venv venv
 source venv/bin/activate
 ```

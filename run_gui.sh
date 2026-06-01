@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_gui.sh — launch the opt1ms3r Streamlit dashboard.
+# run_gui.sh — launch the is3r Streamlit dashboard.
 # Auto-activates ./venv if present.
 
 set -e

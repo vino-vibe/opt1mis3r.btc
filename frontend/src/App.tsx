@@ -37,7 +37,7 @@ export function App() {
       <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden">
         <nav className="w-48 bg-gray-900 border-r border-gray-800 flex flex-col p-3 gap-0.5 flex-shrink-0">
           <div className="text-blue-400 font-bold text-lg px-3 py-2 mb-2 tracking-tight">
-            opt1ms3r
+            opt1mis3r
           </div>
           {NAV.map(({ to, label, end }) => (
             <NavLink

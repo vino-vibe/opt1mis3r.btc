@@ -6,7 +6,7 @@ list eligible passes, and a "run all" shortcut.
 ## One-time install
 
 ```bash
-cd ~/Documents/Claude\ Projects/n3w\ opt1ms3r/opt1ms3r.btc-master
+cd ~/Documents/Claude\ Projects/n3w\ opt1mis3r/opt1mis3r.btc-master
 source venv/bin/activate    # if you have a venv
 pip install -r requirements.txt
 ```
